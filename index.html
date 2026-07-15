@@ -387,7 +387,8 @@ async function run(mode){
     else renderEmail(raw);
     saveHistory({ mode, text, raw, ts: Date.now() });
   } catch (err){
-    status.textContent = "Error: " + err.message;
+    console.error('Wordsmith error:', err.message); // full detail stays in browser console for debugging
+    status.textContent = "High engagement right now — please refresh or try again in a moment.";
     status.className = "status";
   }
 }

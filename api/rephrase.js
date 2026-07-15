@@ -3,18 +3,89 @@
 // (set as an environment variable in the Vercel dashboard, NOT in this file)
 // stays secret even though this code is public on GitHub.
 
+// --- Basic in-memory rate limiter ---
+// Resets when the serverless function cold-starts, so it's not perfect,
+// but it stops the common case: someone hammering the endpoint in a loop.
+const requestLog = new Map(); // ip -> [timestamps]
+const RATE_LIMIT = 10;        // max requests per visitor per window (enough for repeated rephrase/email use)
+const RATE_WINDOW_MS = 60_000; // per 1 minute
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const timestamps = (requestLog.get(ip) || []).filter(t => now - t < RATE_WINDOW_MS);
+  timestamps.push(now);
+  requestLog.set(ip, timestamps);
+  return timestamps.length > RATE_LIMIT;
+}
+
+// --- Allowed origins ---
+// Add your real Vercel/production domain(s) here once deployed.
+// During local testing, requests with no origin header (e.g. curl) are allowed through,
+// but browser requests from other websites will be blocked.
+const ALLOWED_ORIGINS = [
+  'https://wordsmith-rephrase.vercel.app/',       // replace with your actual deployed domain
+];
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // non-browser requests (e.g. server-to-server) have no origin header
+  return ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed));
+}
+
+const MAX_INPUT_LENGTH = 3000; // characters
+
 export default async function handler(req, res) {
+  const origin = req.headers.origin;
+
+  // CORS headers — tells browsers directly that only your domain may call this API.
+  // This backs up the manual origin check below with browser-enforced blocking too.
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Preflight requests (browsers send these automatically before the real POST)
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Use POST' });
   }
 
+  // 1. Origin check — blocks other websites from calling your API and burning your quota
+  if (!isAllowedOrigin(origin)) {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+
+  // 2. Rate limit per IP
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  if (isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Too many requests — please slow down and try again in a minute.' });
+  }
+
+  // 3. Validate input
   const { mode, text } = req.body || {};
   if (!text || !mode) {
     return res.status(400).json({ error: 'Missing mode or text' });
   }
+  if (typeof text !== 'string' || typeof mode !== 'string') {
+    return res.status(400).json({ error: 'Invalid input type' });
+  }
+  if (!text.trim()) {
+    return res.status(400).json({ error: 'Input cannot be empty' });
+  }
+  if (text.length > MAX_INPUT_LENGTH) {
+    return res.status(400).json({ error: `Input too long — keep it under ${MAX_INPUT_LENGTH} characters.` });
+  }
+  if (!['rephrase', 'email', 'straightforward'].includes(mode)) {
+    return res.status(400).json({ error: 'Invalid mode' });
+  }
 
   const system = mode === 'email'
     ? `Turn the user's rough note into a complete, well-structured professional email (subject line + greeting + body + sign-off). End the sign-off with exactly:\nRegards,\n[Your name]\nOutput only the email, nothing else.`
+    : mode === 'straightforward'
+    ? `Rewrite the user's rough sentence into one clear, plain, direct version — no fluff, no extra pleasantries, just the point stated cleanly in complete sentences. Output ONLY the rewritten sentence, nothing else.`
     : `Rewrite the user's rough sentence into 6 polished corporate versions: Polite, Professional, Friendly, Concise, Formal, Assertive. Keep the original meaning intact. Output ONLY:\nPolite: ...\nProfessional: ...\nFriendly: ...\nConcise: ...\nFormal: ...\nAssertive: ...`;
 
   try {

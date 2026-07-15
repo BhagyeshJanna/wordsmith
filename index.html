@@ -129,6 +129,9 @@
     padding:6px 8px 6px 12px;
   }
   .hint{ font-size:12px; color:#5B616C; }
+  .char-count{ font-size:12px; color:#5B616C; }
+  .char-count.near-limit{ color:#E5A15C; }
+  .char-count.over-limit{ color:#E5605C; }
 
   .options{
     display:flex; flex-wrap:wrap; gap:8px;
@@ -222,6 +225,7 @@
       <textarea id="input" placeholder="need that report asap dont care how"></textarea>
       <div class="console-footer">
         <span class="hint">⌘ + Enter to rephrase</span>
+        <span class="char-count" id="char-count">0/3000</span>
       </div>
     </div>
 
@@ -245,7 +249,7 @@
 
     <footer>
       Wordsmith is open source.<br>
-      <span class="byline">By - Bhagyesh Janna.</span>
+      <span class="byline">By — Bhagyesh Janna</span>
     </footer>
   </div>
 </div>
@@ -254,6 +258,17 @@
 const STYLES = ["Polite","Professional","Friendly","Concise","Formal","Assertive"];
 const HISTORY_KEY = 'ws_history';
 const MAX_HISTORY = 20;
+const MAX_CHARS = 3000;
+
+const inputEl = document.getElementById('input');
+const charCountEl = document.getElementById('char-count');
+
+function updateCharCount(){
+  const len = inputEl.value.length;
+  charCountEl.textContent = `${len}/${MAX_CHARS}`;
+  charCountEl.className = 'char-count' + (len > MAX_CHARS ? ' over-limit' : len > MAX_CHARS * 0.9 ? ' near-limit' : '');
+}
+inputEl.addEventListener('input', updateCharCount);
 
 function getHistory(){
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
@@ -356,6 +371,7 @@ async function run(mode){
   const status = document.getElementById('status');
   const results = document.getElementById('results');
   if (!text){ status.textContent = "Type something first."; status.className = "status"; return; }
+  if (text.length > MAX_CHARS){ status.textContent = `Please keep it under ${MAX_CHARS} characters.`; status.className = "status"; return; }
 
   document.querySelectorAll('.pill[data-mode]').forEach(p => p.classList.toggle('active', p.dataset.mode === mode));
 

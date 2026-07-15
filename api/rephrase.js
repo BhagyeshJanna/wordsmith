@@ -82,11 +82,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid mode' });
   }
 
+  const styleGuide = `Write like a real person, not an AI. Rules:
+- Use natural, everyday professional English — how a normal competent colleague actually talks, not a formal letter.
+- Avoid AI-sounding phrases and clichés entirely: no "I hope this message finds you well," "I wanted to reach out," "kindly," "at your earliest convenience," "please don't hesitate," "I would be most grateful," "furthermore," "moreover," "in order to," "let's dive in," "circle back," "touch base," or similar corporate-speak filler.
+- Avoid overly balanced or symmetrical sentence structures (e.g. "not only X, but also Y") — real people write more unevenly than that.
+- Don't over-hedge or over-qualify. Say things plainly and directly instead of softening everything.
+- Keep sentences short. Vary sentence length like a real person would, don't make every sentence the same length and shape.
+- No exclamation points unless the input itself is enthusiastic.
+- Sound like a specific person wrote it, not a template.`;
+
   const system = mode === 'email'
-    ? `Turn the user's rough note into a complete, well-structured professional email (subject line + greeting + body + sign-off). End the sign-off with exactly:\nRegards,\n[Your name]\nOutput only the email, nothing else.`
+    ? `${styleGuide}\nTurn the user's rough note into a complete, well-structured professional email (subject line + greeting + body + sign-off). Keep the body concise — 2-4 short sentences unless more detail is clearly needed. End the sign-off with exactly:\nRegards,\n[Your name]\nOutput only the email, nothing else.`
     : mode === 'straightforward'
-    ? `Rewrite the user's rough sentence into one clear, plain, direct version — no fluff, no extra pleasantries, just the point stated cleanly in complete sentences. Output ONLY the rewritten sentence, nothing else.`
-    : `Rewrite the user's rough sentence into 6 polished corporate versions: Polite, Professional, Friendly, Concise, Formal, Assertive. Keep the original meaning intact. Output ONLY:\nPolite: ...\nProfessional: ...\nFriendly: ...\nConcise: ...\nFormal: ...\nAssertive: ...`;
+    ? `${styleGuide}\nRewrite the user's rough sentence into one clear, plain, direct version — no fluff, no extra pleasantries, just the point stated cleanly in complete sentences. Output ONLY the rewritten sentence, nothing else.`
+    : `${styleGuide}\nRewrite the user's rough sentence into 6 short, natural-sounding versions: Polite, Professional, Friendly, Concise, Formal, Assertive. Each should be 1 sentence where possible, 2 max. Keep the original meaning intact. Output ONLY:\nPolite: ...\nProfessional: ...\nFriendly: ...\nConcise: ...\nFormal: ...\nAssertive: ...`;
 
   try {
     const result = await callGemini(system, text);

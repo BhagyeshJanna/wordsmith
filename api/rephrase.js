@@ -18,36 +18,36 @@ export default async function handler(req, res) {
     : `Rewrite the user's rough sentence into 6 polished corporate versions: Polite, Professional, Friendly, Concise, Formal, Assertive. Keep the original meaning intact. Output ONLY:\nPolite: ...\nProfessional: ...\nFriendly: ...\nConcise: ...\nFormal: ...\nAssertive: ...`;
 
   try {
-    const result = await callAnthropic(system, text);
+    const result = await callGemini(system, text);
     return res.status(200).json({ result });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 }
 
-async function callAnthropic(system, userText) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set on server');
+// --- Provider: Gemini (Google) ---
+// Set GEMINI_API_KEY in Vercel project settings -> Environment Variables.
+// Get a free key at https://aistudio.google.com/apikey (no card required).
+async function callGemini(system, userText) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set on server');
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 700,
-      system,
-      messages: [{ role: 'user', content: userText }]
-    })
-  });
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ parts: [{ text: userText }] }]
+      })
+    }
+  );
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Anthropic API error ${response.status}: ${errText.slice(0, 200)}`);
+    throw new Error(`Gemini API error ${response.status}: ${errText.slice(0, 200)}`);
   }
   const data = await response.json();
-  return (data.content || []).map(b => b.text || '').join('');
+  return data.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
 }

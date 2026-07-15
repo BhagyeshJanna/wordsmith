@@ -23,7 +23,7 @@ function isRateLimited(ip) {
 // During local testing, requests with no origin header (e.g. curl) are allowed through,
 // but browser requests from other websites will be blocked.
 const ALLOWED_ORIGINS = [
-  'https://wordsmith-rephrase.vercel.app/',       // replace with your actual deployed domain
+  'https://wordsmith-rephrase.vercel.app',       // replace with your actual deployed domain
 ];
 
 function isAllowedOrigin(origin) {

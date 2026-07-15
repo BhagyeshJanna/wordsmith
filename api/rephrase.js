@@ -99,7 +99,7 @@ export default async function handler(req, res) {
 // --- Provider: Gemini (Google) ---
 // Set GEMINI_API_KEY in Vercel project settings -> Environment Variables.
 // Get a free key at https://aistudio.google.com/apikey (no card required).
-async function callGemini(system, userText) {
+async function callGemini(system, userText, attempt = 1) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set on server');
 
@@ -114,6 +114,13 @@ async function callGemini(system, userText) {
       })
     }
   );
+
+  // Gemini's free tier occasionally returns 503 "high demand" — retry a couple times
+  // with a short delay before giving up, instead of failing immediately.
+  if (response.status === 503 && attempt < 3) {
+    await new Promise(r => setTimeout(r, attempt * 800)); // 800ms, then 1600ms
+    return callGemini(system, userText, attempt + 1);
+  }
 
   if (!response.ok) {
     const errText = await response.text();

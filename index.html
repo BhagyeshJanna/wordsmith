@@ -234,6 +234,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
         Email
       </button>
+      <button class="pill" data-mode="straightforward">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        Straightforward
+      </button>
     </div>
 
     <div class="status" id="status"></div>
@@ -241,7 +245,7 @@
 
     <footer>
       Wordsmith is open source.<br>
-      <span class="byline">By - Bhagyesh Janna.</span>
+      <span class="byline">By — Bhagyesh Janna</span>
     </footer>
   </div>
 </div>
@@ -281,6 +285,7 @@ function renderHistory(){
       document.getElementById('input').value = entry.text;
       document.querySelectorAll('.pill[data-mode]').forEach(p => p.classList.toggle('active', p.dataset.mode === entry.mode));
       if (entry.mode === 'rephrase') renderRephrase(entry.raw);
+      else if (entry.mode === 'straightforward') renderStraightforward(entry.raw);
       else renderEmail(entry.raw);
       document.getElementById('status').textContent = "";
     };
@@ -335,6 +340,17 @@ function renderEmail(raw){
   results.appendChild(card);
 }
 
+function renderStraightforward(raw){
+  const results = document.getElementById('results');
+  const card = document.createElement('div');
+  card.className = 'result-card';
+  card.innerHTML = `<div class="label">Straightforward</div><div class="body"></div><button class="copy-btn">Copy</button>`;
+  card.querySelector('.body').textContent = raw.trim();
+  card.querySelector('.copy-btn').onclick = () => navigator.clipboard.writeText(raw.trim());
+  results.innerHTML = "";
+  results.appendChild(card);
+}
+
 async function run(mode){
   const text = document.getElementById('input').value.trim();
   const status = document.getElementById('status');
@@ -351,6 +367,7 @@ async function run(mode){
     status.textContent = "";
     status.className = "status";
     if (mode === 'rephrase') renderRephrase(raw);
+    else if (mode === 'straightforward') renderStraightforward(raw);
     else renderEmail(raw);
     saveHistory({ mode, text, raw, ts: Date.now() });
   } catch (err){
